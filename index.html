@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      max-width: 600px;
+    }
+
+    form {
+      display: grid;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: grid;
+      gap: 0.3rem;
+    }
+
+    input,
+    button {
+      font-size: 1rem;
+      padding: 0.5rem;
+    }
+
+    #qrCanvas {
+      border: 1px solid #ddd;
+      display: none;
+      image-rendering: pixelated;
+    }
+
+    #error {
+      color: #b00020;
+      min-height: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>QR Code Generator</h1>
+  <form id="qrForm">
+    <label for="urlInput">
+      URL to encode
+      <input id="urlInput" type="url" placeholder="https://example.com" required>
+    </label>
+
+    <label for="resolutionInput">
+      Output resolution (px)
+      <input id="resolutionInput" type="number" min="64" max="2048" value="512" required>
+    </label>
+
+    <label for="foregroundInput">
+      Foreground color
+      <input id="foregroundInput" type="color" value="#000000">
+    </label>
+
+    <label for="backgroundInput">
+      Background color
+      <input id="backgroundInput" type="color" value="#ffffff">
+    </label>
+
+    <button type="submit">Generate</button>
+  </form>
+
+  <p id="error" aria-live="polite"></p>
+  <canvas id="qrCanvas" aria-label="Generated QR code"></canvas>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script>
+    const form = document.getElementById('qrForm');
+    const urlInput = document.getElementById('urlInput');
+    const resolutionInput = document.getElementById('resolutionInput');
+    const foregroundInput = document.getElementById('foregroundInput');
+    const backgroundInput = document.getElementById('backgroundInput');
+    const canvas = document.getElementById('qrCanvas');
+    const error = document.getElementById('error');
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      error.textContent = '';
+
+      const text = urlInput.value.trim();
+      const resolution = Number.parseInt(resolutionInput.value, 10);
+
+      if (!text) {
+        error.textContent = 'Please enter a URL.';
+        canvas.style.display = 'none';
+        return;
+      }
+
+      if (!Number.isFinite(resolution) || resolution < 64 || resolution > 2048) {
+        error.textContent = 'Resolution must be between 64 and 2048.';
+        canvas.style.display = 'none';
+        return;
+      }
+
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+
+      const moduleCount = qr.getModuleCount();
+      const cellSize = resolution / moduleCount;
+
+      canvas.width = resolution;
+      canvas.height = resolution;
+      const context = canvas.getContext('2d');
+
+      context.fillStyle = backgroundInput.value;
+      context.fillRect(0, 0, resolution, resolution);
+      context.fillStyle = foregroundInput.value;
+
+      for (let row = 0; row < moduleCount; row += 1) {
+        for (let col = 0; col < moduleCount; col += 1) {
+          if (!qr.isDark(row, col)) {
+            continue;
+          }
+
+          const x = Math.round(col * cellSize);
+          const y = Math.round(row * cellSize);
+          const width = Math.round((col + 1) * cellSize) - x;
+          const height = Math.round((row + 1) * cellSize) - y;
+
+          context.fillRect(x, y, width, height);
+        }
+      }
+
+      canvas.style.display = 'block';
+    });
+  </script>
+</body>
+</html>
