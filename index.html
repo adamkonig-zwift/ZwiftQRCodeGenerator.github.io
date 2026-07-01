@@ -28,6 +28,16 @@
       gap: 0.5rem;
     }
 
+    .color-field input[type="color"] {
+      width: 2.5rem;
+      height: 2.5rem;
+      padding: 0;
+      border: 1px solid #999;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
     .color-field input[type="text"] {
       flex: 1;
     }
@@ -71,18 +81,20 @@
       <input id="resolutionInput" type="number" min="64" max="2048" value="512" required>
     </label>
 
-    <label for="foregroundInput">
-      Foreground color (hex with alpha, e.g. #FF000080)
+    <label for="foregroundHex">
+      Foreground color
       <div class="color-field">
-        <input id="foregroundInput" type="text" value="#000000FF" pattern="^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" required>
+        <input id="foregroundPicker" type="color" value="#000000">
+        <input id="foregroundHex" type="text" value="#000000FF" pattern="^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" required>
         <div id="foregroundPreview" class="color-preview"></div>
       </div>
     </label>
 
-    <label for="backgroundInput">
-      Background color (hex with alpha, e.g. #FFFFFF80)
+    <label for="backgroundHex">
+      Background color
       <div class="color-field">
-        <input id="backgroundInput" type="text" value="#FFFFFFFF" pattern="^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" required>
+        <input id="backgroundPicker" type="color" value="#ffffff">
+        <input id="backgroundHex" type="text" value="#FFFFFFFF" pattern="^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" required>
         <div id="backgroundPreview" class="color-preview"></div>
       </div>
     </label>
@@ -98,8 +110,10 @@
     const form = document.getElementById('qrForm');
     const textInput = document.getElementById('textInput');
     const resolutionInput = document.getElementById('resolutionInput');
-    const foregroundInput = document.getElementById('foregroundInput');
-    const backgroundInput = document.getElementById('backgroundInput');
+    const foregroundPicker = document.getElementById('foregroundPicker');
+    const foregroundHex = document.getElementById('foregroundHex');
+    const backgroundPicker = document.getElementById('backgroundPicker');
+    const backgroundHex = document.getElementById('backgroundHex');
     const foregroundPreview = document.getElementById('foregroundPreview');
     const backgroundPreview = document.getElementById('backgroundPreview');
     const canvas = document.getElementById('qrCanvas');
@@ -116,12 +130,36 @@
     }
 
     function updatePreviews() {
-      foregroundPreview.style.backgroundColor = hexToRgba(foregroundInput.value);
-      backgroundPreview.style.backgroundColor = hexToRgba(backgroundInput.value);
+      foregroundPreview.style.backgroundColor = hexToRgba(foregroundHex.value);
+      backgroundPreview.style.backgroundColor = hexToRgba(backgroundHex.value);
     }
 
-    foregroundInput.addEventListener('input', updatePreviews);
-    backgroundInput.addEventListener('input', updatePreviews);
+    // Sync: picker -> hex (preserves existing alpha suffix)
+    foregroundPicker.addEventListener('input', () => {
+      const alpha = foregroundHex.value.length === 9 ? foregroundHex.value.slice(7) : 'FF';
+      foregroundHex.value = foregroundPicker.value.toUpperCase() + alpha;
+      updatePreviews();
+    });
+    backgroundPicker.addEventListener('input', () => {
+      const alpha = backgroundHex.value.length === 9 ? backgroundHex.value.slice(7) : 'FF';
+      backgroundHex.value = backgroundPicker.value.toUpperCase() + alpha;
+      updatePreviews();
+    });
+
+    // Sync: hex -> picker (picker only supports 6-char hex)
+    foregroundHex.addEventListener('input', () => {
+      if (/^#[0-9A-Fa-f]{6}/.test(foregroundHex.value)) {
+        foregroundPicker.value = foregroundHex.value.slice(0, 7);
+      }
+      updatePreviews();
+    });
+    backgroundHex.addEventListener('input', () => {
+      if (/^#[0-9A-Fa-f]{6}/.test(backgroundHex.value)) {
+        backgroundPicker.value = backgroundHex.value.slice(0, 7);
+      }
+      updatePreviews();
+    });
+
     updatePreviews();
 
     form.addEventListener('submit', (event) => {
@@ -143,8 +181,8 @@
         return;
       }
 
-      const fgValid = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(foregroundInput.value);
-      const bgValid = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(backgroundInput.value);
+      const fgValid = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(foregroundHex.value);
+      const bgValid = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(backgroundHex.value);
       if (!fgValid || !bgValid) {
         error.textContent = 'Colors must be hex format: #RRGGBB or #RRGGBBAA.';
         canvas.style.display = 'none';
@@ -163,9 +201,9 @@
       const context = canvas.getContext('2d');
 
       context.clearRect(0, 0, resolution, resolution);
-      context.fillStyle = hexToRgba(backgroundInput.value);
+      context.fillStyle = hexToRgba(backgroundHex.value);
       context.fillRect(0, 0, resolution, resolution);
-      context.fillStyle = hexToRgba(foregroundInput.value);
+      context.fillStyle = hexToRgba(foregroundHex.value);
 
       for (let row = 0; row < moduleCount; row += 1) {
         for (let col = 0; col < moduleCount; col += 1) {
