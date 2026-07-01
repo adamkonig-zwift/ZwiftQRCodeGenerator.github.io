@@ -22,6 +22,24 @@
       gap: 0.3rem;
     }
 
+    .color-field {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .color-field input[type="text"] {
+      flex: 1;
+    }
+
+    .color-preview {
+      width: 2rem;
+      height: 2rem;
+      border: 1px solid #999;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
     input,
     button {
       font-size: 1rem;
@@ -43,9 +61,9 @@
 <body>
   <h1>QR Code Generator</h1>
   <form id="qrForm">
-    <label for="urlInput">
-      URL to encode
-      <input id="urlInput" type="url" placeholder="https://example.com" required>
+    <label for="textInput">
+      Text to encode
+      <input id="textInput" type="text" placeholder="https://example.com or any text" required>
     </label>
 
     <label for="resolutionInput">
@@ -54,13 +72,19 @@
     </label>
 
     <label for="foregroundInput">
-      Foreground color
-      <input id="foregroundInput" type="color" value="#000000">
+      Foreground color (hex with alpha, e.g. #FF000080)
+      <div class="color-field">
+        <input id="foregroundInput" type="text" value="#000000FF" pattern="^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" required>
+        <div id="foregroundPreview" class="color-preview"></div>
+      </div>
     </label>
 
     <label for="backgroundInput">
-      Background color
-      <input id="backgroundInput" type="color" value="#ffffff">
+      Background color (hex with alpha, e.g. #FFFFFF80)
+      <div class="color-field">
+        <input id="backgroundInput" type="text" value="#FFFFFFFF" pattern="^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" required>
+        <div id="backgroundPreview" class="color-preview"></div>
+      </div>
     </label>
 
     <button type="submit">Generate</button>
@@ -72,28 +96,57 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
   <script>
     const form = document.getElementById('qrForm');
-    const urlInput = document.getElementById('urlInput');
+    const textInput = document.getElementById('textInput');
     const resolutionInput = document.getElementById('resolutionInput');
     const foregroundInput = document.getElementById('foregroundInput');
     const backgroundInput = document.getElementById('backgroundInput');
+    const foregroundPreview = document.getElementById('foregroundPreview');
+    const backgroundPreview = document.getElementById('backgroundPreview');
     const canvas = document.getElementById('qrCanvas');
     const error = document.getElementById('error');
+
+    // Convert #RRGGBBAA hex to an rgba() CSS string
+    function hexToRgba(hex) {
+      const clean = hex.replace('#', '');
+      const r = parseInt(clean.substring(0, 2), 16);
+      const g = parseInt(clean.substring(2, 4), 16);
+      const b = parseInt(clean.substring(4, 6), 16);
+      const a = clean.length === 8 ? parseInt(clean.substring(6, 8), 16) / 255 : 1;
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    function updatePreviews() {
+      foregroundPreview.style.backgroundColor = hexToRgba(foregroundInput.value);
+      backgroundPreview.style.backgroundColor = hexToRgba(backgroundInput.value);
+    }
+
+    foregroundInput.addEventListener('input', updatePreviews);
+    backgroundInput.addEventListener('input', updatePreviews);
+    updatePreviews();
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       error.textContent = '';
 
-      const text = urlInput.value.trim();
+      const text = textInput.value.trim();
       const resolution = Number.parseInt(resolutionInput.value, 10);
 
       if (!text) {
-        error.textContent = 'Please enter a URL.';
+        error.textContent = 'Please enter some text.';
         canvas.style.display = 'none';
         return;
       }
 
       if (!Number.isFinite(resolution) || resolution < 64 || resolution > 2048) {
         error.textContent = 'Resolution must be between 64 and 2048.';
+        canvas.style.display = 'none';
+        return;
+      }
+
+      const fgValid = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(foregroundInput.value);
+      const bgValid = /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(backgroundInput.value);
+      if (!fgValid || !bgValid) {
+        error.textContent = 'Colors must be hex format: #RRGGBB or #RRGGBBAA.';
         canvas.style.display = 'none';
         return;
       }
@@ -109,9 +162,10 @@
       canvas.height = resolution;
       const context = canvas.getContext('2d');
 
-      context.fillStyle = backgroundInput.value;
+      context.clearRect(0, 0, resolution, resolution);
+      context.fillStyle = hexToRgba(backgroundInput.value);
       context.fillRect(0, 0, resolution, resolution);
-      context.fillStyle = foregroundInput.value;
+      context.fillStyle = hexToRgba(foregroundInput.value);
 
       for (let row = 0; row < moduleCount; row += 1) {
         for (let col = 0; col < moduleCount; col += 1) {
